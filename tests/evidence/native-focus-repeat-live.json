@@ -1,0 +1,64 @@
+{
+  "window": [
+    {
+      "hwnd": 3540740,
+      "title": "俄罗斯方块",
+      "visible": true,
+      "pid": 7808
+    }
+  ],
+  "before": {
+    "phase": "playing",
+    "px": 3,
+    "py": 0,
+    "rotation": 0,
+    "score": 0,
+    "seed": 17
+  },
+  "hold": {
+    "key": "ArrowLeft",
+    "key_down_packets": 6,
+    "repeat_packets": 5,
+    "keyup": true,
+    "duration_ms": 750
+  },
+  "after_release": {
+    "phase": "playing",
+    "px": 0,
+    "py": 2,
+    "rotation": 0,
+    "score": 0,
+    "seed": 17
+  },
+  "blur": {
+    "performed": true,
+    "other_hwnd": 1572996,
+    "after": {
+      "phase": "paused",
+      "px": 0,
+      "py": 2,
+      "rotation": 0,
+      "score": 0,
+      "seed": 17
+    },
+    "expected_phase": "paused"
+  },
+  "control_pause": {
+    "before": {
+      "phase": "paused",
+      "px": 0,
+      "py": 2,
+      "rotation": 0,
+      "score": 0,
+      "seed": 17
+    },
+    "after": {
+      "phase": "paused",
+      "px": 0,
+      "py": 2,
+      "rotation": 0,
+      "score": 0,
+      "seed": 17
+    }
+  }
+}

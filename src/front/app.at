@@ -1,0 +1,181 @@
+use tetris_store: TetrisStore
+
+widget App {
+    msg {
+        Init, Start, Tick, MoveLeft, MoveRight, Rotate, SoftDrop, HardDrop,
+        TogglePause, RestartAsk, RestartConfirm, RestartCancel, ShowHelp,
+        CloseHelp, RetrySave, Blur
+    }
+
+    model { var interval int = 20 }
+
+    view {
+        col {
+            style: "bg-background text-foreground p-4 sm:p-6 gap-4 items-center"
+            row {
+                // Fit-mode windows need a concrete intrinsic width; a full-width track has no
+                // parent width during the first native measurement and collapses to 200px.
+                style: "w-128 items-center justify-between"
+                row {
+                    style: "items-center gap-2"
+                    text "▦" { style: "text-2xl text-primary" }
+                    col {
+                        h1 "俄罗斯方块" { style: "text-lg font-medium" }
+                        text .store.status_label { style: "text-xs text-muted-foreground" }
+                    }
+                }
+                row {
+                    style: "items-center gap-2"
+                    button "玩法说明" { onclick: .ShowHelp, style: "px-3 py-2 rounded-md text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                    button "暂停 P" { onclick: .TogglePause, style: "px-3 py-2 rounded-md text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                }
+            }
+
+            row {
+                style: "items-start justify-center gap-4"
+                col {
+                    style: "w-72 h-[36rem] bg-slate-950 border border-slate-700 rounded-lg p-1"
+                    grid {
+                        cols: 10
+                        gap: 1
+                        style: "w-full h-full min-h-0"
+                        for cell in .store.cells {
+                            button { aria-label: cell.aria, onclick: .Start, class: cell.cell_class }
+                        }
+                    }
+                }
+                col {
+                    style: "w-48 gap-3"
+                    col {
+                        style: "bg-card border border-border rounded-xl p-4 gap-2"
+                        text "下一个" { style: "text-xs text-muted-foreground" }
+                        grid {
+                            cols: 4
+                            gap: 1
+                            // Keep the preview as a compact 4×4 board. Native
+                            // grid tracks otherwise stretch to the card height.
+                            style: "w-20 h-20 self-center"
+                            for cell in .store.next_cells { div { class: cell.cell_class } }
+                        }
+                    }
+                    col {
+                        style: "bg-card border border-border rounded-xl p-4 gap-2"
+                        text "得分" { style: "text-xs text-muted-foreground" }
+                        text .store.score_label { style: "text-3xl font-medium tabular-nums" }
+                        row {
+                            style: "justify-between"
+                            text "最高纪录" { style: "text-xs text-muted-foreground" }
+                            text .store.best_label { style: "text-xs tabular-nums" }
+                        }
+                        text .store.save_label { style: "text-xs text-muted-foreground" }
+                        if .store.save_pending { button "重试保存" { onclick: .RetrySave, style: "px-3 py-2 rounded-md text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80" } }
+                    }
+                    col {
+                        style: "bg-card border border-border rounded-xl p-4 gap-3"
+                        // Native Iced has a stack-overflow edge case for a
+                        // styled column containing a row of nested columns.
+                        // Keep the same two-column information in a grid so
+                        // Vue and VM/Rust share a renderer-safe structure.
+                        grid {
+                            cols: 2
+                            gap: 1
+                            text "等级" { style: "text-xs text-muted-foreground" }
+                            text .store.level_label { style: "text-2xl tabular-nums" }
+                            text "消行" { style: "text-xs text-muted-foreground" }
+                            text .store.lines_label { style: "text-2xl tabular-nums" }
+                        }
+                        text .store.progress_label { style: "text-xs text-muted-foreground" }
+                    }
+                    text .store.feedback { style: "text-xs text-muted-foreground text-center min-h-8" }
+                }
+            }
+
+            row {
+                style: "w-full max-w-xl justify-center gap-2"
+                button "← 左移" { onclick: .MoveLeft, style: "px-3 py-2 rounded-md min-h-11 bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                button "↻ 旋转" { onclick: .Rotate, style: "px-3 py-2 rounded-md min-h-11 bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                button "右移 →" { onclick: .MoveRight, style: "px-3 py-2 rounded-md min-h-11 bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                button "↓ 软降" { onclick: .SoftDrop, style: "px-3 py-2 rounded-md min-h-11 bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                button "硬降 · Space" { onclick: .HardDrop, style: "px-3 py-2 rounded-md min-h-11 bg-primary text-primary-foreground" }
+            }
+            text "← → 移动 · ↑ 旋转 · ↓ 软降 · Space 硬降 · P 暂停" { style: "text-xs text-muted-foreground text-center" }
+
+            // 状态提示使用标准 dialog。它在 Vue 中是对话框浮层，
+            // 在 VM/Rust 中映射到同一套 Modal Popover，避免 absolute/inset
+            // 在原生渲染器降级为普通流式内容后跑到窗口角落。
+            dialog (open: .store.phase == "ready") {
+                dialog-content {
+                    text "准备好了吗" { style: "text-xl font-medium" }
+                    text "填满整行即可消除" { style: "text-sm text-muted-foreground" }
+                    button "开始游戏" { onclick: .Start, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                }
+            }
+            dialog (open: .store.phase == "paused") {
+                dialog-content {
+                    text "已暂停" { style: "text-xl font-medium" }
+                    button "继续游戏" { onclick: .TogglePause, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    button "重新开始" { onclick: .RestartAsk, style: "px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                }
+            }
+            dialog (open: .store.phase == "confirm") {
+                dialog-content {
+                    text "重新开始？" { style: "text-xl font-medium" }
+                    text "本局进度将清空，最高纪录会保留" { style: "text-sm text-muted-foreground" }
+                    row {
+                        button "取消" { onclick: .RestartCancel, style: "px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                        button "确认重开" { onclick: .RestartConfirm, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    }
+                }
+            }
+            dialog (open: .store.phase == "help") {
+                dialog-content {
+                    text "玩法说明" { style: "text-xl font-medium" }
+                    text "← → 移动，↑ 顺时针旋转\n↓ 软降，Space 硬降\n空心轮廓表示硬降落点\n本版随机抽块，不含踢墙" { style: "text-sm text-muted-foreground text-center" }
+                    button "返回游戏" { onclick: .CloseHelp, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                }
+            }
+            dialog (open: .store.phase == "over") {
+                dialog-content {
+                    text "游戏结束" { style: "text-xl font-medium" }
+                    text .store.score_label { style: "text-3xl tabular-nums" }
+                    text "再试一次，挑战最高纪录" { style: "text-sm text-muted-foreground" }
+                    button "再来一局" { onclick: .RestartConfirm, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                }
+            }
+        }
+    }
+
+    bind {
+        "ArrowLeft" -> .MoveLeft
+        "ArrowRight" -> .MoveRight
+        "ArrowUp" -> .Rotate
+        "ArrowDown" -> .SoftDrop
+        " " -> .HardDrop
+        "Space" -> .HardDrop
+        "p" -> .TogglePause
+        "P" -> .TogglePause
+        "Escape" -> .CloseHelp
+    }
+
+    on {
+        .Init -> { store.Init() }
+        .Start -> { store.Start() }
+        .Tick -> { store.Tick() }
+        .MoveLeft -> { store.MoveLeft() }
+        .MoveRight -> { store.MoveRight() }
+        .Rotate -> { store.Rotate() }
+        .SoftDrop -> { store.SoftDrop() }
+        .HardDrop -> { store.HardDrop() }
+        .TogglePause -> { store.TogglePause() }
+        .RestartAsk -> { store.RestartAsk() }
+        .RestartConfirm -> { store.RestartConfirm() }
+        .RestartCancel -> { store.RestartCancel() }
+        .ShowHelp -> { store.ShowHelp() }
+        .CloseHelp -> { store.CloseHelp() }
+        .RetrySave -> { store.RetrySave() }
+        // Native window focus loss is delivered by the VM/Iced session as an
+        // opt-in Blur lifecycle message. Pause immediately and clear the
+        // gravity accumulator; focus restoration never resumes implicitly.
+        .Blur -> { store.Blur() }
+    }
+}

@@ -1,0 +1,106 @@
+// Single-player record persistence. Tests use an isolated working directory.
+use auto.env: get
+var current_best int = 0
+
+fn record_path() str {
+    // VM split keeps the backend in a thread while the frontend temporarily
+    // changes CWD to src/front for module loading. Pin the shared record file
+    // to the app root when the runner provides it, with the relative path as
+    // a direct-run fallback.
+    var root str = get("AUTO_PROJECT_DIR")
+    // VM's native interpreter runs from src/front; use a relative path there
+    // so the backend thread shares the same sandbox-visible project root.
+    if get("AUTO_RENDER") == "vm" { return "../../records.json" }
+    // Windows runners may expose an extended `\\?\\` prefix; normalize it
+    // because the VM file shim expects a regular absolute path here.
+    if root.starts_with("\\\\?\\") { root = root.slice(4, root.len()) }
+    if root == "" { return "records.json" }
+    return root + "/records.json"
+}
+
+fn persisted_value(raw str) int {
+    if raw == "" { return 0 }
+    var first int = raw[0].to_int() ?? 0
+    var i int = 0
+    var number int = 0
+    var in_num bool = false
+    var value int = 0
+    var count int = 0
+    while i < raw.len() {
+        var ch int = raw[i].to_int() ?? 0
+        if ch >= 48 && ch <= 57 {
+            number = number * 10 + ch - 48
+            in_num = true
+        } else if in_num {
+            value = number
+            number = 0
+            in_num = false
+            count = count + 1
+        }
+        i = i + 1
+    }
+    if in_num {
+        value = number
+        count = count + 1
+    }
+    // Versioned JSON has schema_version and best. A raw integer remains
+    // readable for one-way compatibility with records created by early builds.
+    if first == 123 && count < 2 { return 0 }
+    return value
+}
+
+pub fn read_best() int {
+    // Keep the file as the source of truth across backend restarts.
+    var raw str = File.read_text(record_path())
+    var persisted int = persisted_value(raw)
+    if persisted > current_best { current_best = persisted }
+    return current_best
+}
+
+pub fn save_best(score int) int {
+    if score < 0 { return current_best }
+    var old int = read_best()
+    if score > old { current_best = score }
+    // Write the maximum, never the incoming lower score. This preserves
+    // monotonicity after a process restart as well as within one process.
+    var persisted_best int = current_best
+    var content str = "{\"schema_version\":1,\"best\":" + persisted_best.to_string() + "}"
+    File.write_text(record_path(), content)
+    return current_best
+}
+
+pub fn all_scores() []int { return [read_best()] }
+pub fn list_scores() int { return read_best() }
+fn parse_score(raw str) int {
+    if raw == "" { return -1 }
+    // VM HTTP may pass the complete JSON body (e.g. {"score":"36"}),
+    // while Rust/Vue clients pass a scalar. Scan the first digit run so all
+    // renderer legs share one parser without a dynamic JSON dependency.
+    var i int = 0
+    var value int = 0
+    var seen bool = false
+    var negative bool = false
+    while i < raw.len() {
+        var ch int = raw[i].to_int() ?? 0
+        if ch == 45 && !seen {
+            // Reject negative scores instead of scanning their magnitude.
+            negative = true
+        } else if ch >= 48 && ch <= 57 {
+            if negative { return -1 }
+            value = value * 10 + ch - 48
+            seen = true
+        } else if seen {
+            return value
+        }
+        i = i + 1
+    }
+    if !seen { return -1 }
+    return value
+}
+
+pub fn create_score(score str) bool {
+    var parsed int = parse_score(score)
+    if parsed < 0 { return false }
+    save_best(parsed)
+    return true
+}

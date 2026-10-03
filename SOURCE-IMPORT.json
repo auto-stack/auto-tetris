@@ -1,0 +1,158 @@
+{
+  "repository": "auto-tetris",
+  "date": "2026-10-03",
+  "sources": [
+    {
+      "repo": "auto-os",
+      "commit": "93c3cb0259c8cfe1644e2b35baff71638be59ec5",
+      "path": "apps/036-tetris",
+      "primary": true,
+      "fileCount": 25,
+      "pacFields": {
+        "name": "tetris",
+        "version": "1.0.0",
+        "scene": "ui",
+        "render": "vue",
+        "icon": "blocks",
+        "title": "俄罗斯方块",
+        "theme": "dark",
+        "accent": "indigo",
+        "api": "rust",
+        "front_port": "17500",
+        "back_port": "17501",
+        "window": "fit",
+        "desktop": "true",
+        "desktop_exe": "rust-workspace/target/debug/tetris.exe",
+        "category": "game"
+      },
+      "files": [
+        {
+          "sourcePath": "apps/036-tetris/.gitignore",
+          "path": ".gitignore",
+          "sha256": "b4f6eb40ac1bf6c9da957a0c2bc685a9e442c90611a71521787f891cf39488f0"
+        },
+        {
+          "sourcePath": "apps/036-tetris/README.md",
+          "path": "README.md",
+          "sha256": "f7952bfd43fb18bf5fb69648db2ca641ff36ed8668f282c0e5d28f2f8cbd5657"
+        },
+        {
+          "sourcePath": "apps/036-tetris/am.at",
+          "path": "am.at",
+          "sha256": "f21884ffa2644d8e0a5e0eff4d0bc737c61496286759ea813d467c96d3913407"
+        },
+        {
+          "sourcePath": "apps/036-tetris/pac.at",
+          "path": "pac.at",
+          "sha256": "59699408115256d4316a4d4cf72d301dfeacd5d4fde54d6a6298cfba502ba68f"
+        },
+        {
+          "sourcePath": "apps/036-tetris/src/back/api.at",
+          "path": "src/back/api.at",
+          "sha256": "9bca4d9150fa1b9c5f664cc895afae23aec661279ea6a3bde03ca722dcb96fa9"
+        },
+        {
+          "sourcePath": "apps/036-tetris/src/back/db.at",
+          "path": "src/back/db.at",
+          "sha256": "c5ec3fcd9ffc9a6be883361daadc3ea1ff01401e09ea0e9f99c3a19bb0c04614"
+        },
+        {
+          "sourcePath": "apps/036-tetris/src/front/app.at",
+          "path": "src/front/app.at",
+          "sha256": "bc28d6dea2afdd74ff272022c1a54482ffb96f979d21ad310045fa297ac44ef9"
+        },
+        {
+          "sourcePath": "apps/036-tetris/src/front/tetris_store.at",
+          "path": "src/front/tetris_store.at",
+          "sha256": "53987d68fdc77981c1fbf4d7cc93e905a90d3e6930e5e29befa5019ce0e3ccae"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/desktop_mcp.py",
+          "path": "tests/desktop_mcp.py",
+          "sha256": "2f0fb999fb4c95dd052d1b778309d498df2f254ff2605bbc30b0a0f385eefa39"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/capabilities.md",
+          "path": "tests/evidence/capabilities.md",
+          "sha256": "de3bd9116f9dea7877f529314936359e6033271d8d91ca0a8551e25df374b17a"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/native-focus-repeat-live.json",
+          "path": "tests/evidence/native-focus-repeat-live.json",
+          "sha256": "b53d68d6be9ef37210767185579f626126cd65a484df516c9d11ee3db65f085e"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/native-input-live.json",
+          "path": "tests/evidence/native-input-live.json",
+          "sha256": "e4a0f5231cd489712093743d85d78b74e35598e89b02308f5a024522ed41b04e"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/native-input.md",
+          "path": "tests/evidence/native-input.md",
+          "sha256": "abe93545a12f5d1afb05faa8c5215caf8e780ba91be2a31500dcad1a62ff2326"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/rules-golden.md",
+          "path": "tests/evidence/rules-golden.md",
+          "sha256": "7b268d60762d6a7ab42c6bf83a4a21b3c39f5905ab745b8a4573367005013e73"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/vm-ready-modal-live.png",
+          "path": "tests/evidence/vm-ready-modal-live.png",
+          "sha256": "33ac8c9cdad21c291fc5bbe2a9c15aad3878a867c4985cc35ed45b16f1ad18f5"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/evidence/vm-ready-modal.png",
+          "path": "tests/evidence/vm-ready-modal.png",
+          "sha256": "33ac8c9cdad21c291fc5bbe2a9c15aad3878a867c4985cc35ed45b16f1ad18f5"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/gallery_contract.py",
+          "path": "tests/gallery_contract.py",
+          "sha256": "8e123d5c4226946f7179b0dc4283ad267f0103e68b8da23c39f26ac5db9a4084"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/native_focus_probe.py",
+          "path": "tests/native_focus_probe.py",
+          "sha256": "7cfa57178432a702dc5b36e2fa3fea9d00f40c530a6a011fd80184a9c7fc0b54"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/native_physical.py",
+          "path": "tests/native_physical.py",
+          "sha256": "220af891267fb18b026811a6c2ecccd87a4f7907d11d98114fd71eab957fdaf4"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/package.json",
+          "path": "tests/package.json",
+          "sha256": "ee530941d8ca7363e5ee6f79cac4858b2bed0cac720018abf448c7124938fae8"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/playwright.config.ts",
+          "path": "tests/playwright.config.ts",
+          "sha256": "1b2341458c1dd93db96c4c80fdd66037cfc1c57b2ab0367923cd78fc5949d052"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/pnpm-lock.yaml",
+          "path": "tests/pnpm-lock.yaml",
+          "sha256": "cbbe12a5226b3826f365f795dc703deb484d65b3591f1274d5379d9fdd12a76f"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/run_matrix.py",
+          "path": "tests/run_matrix.py",
+          "sha256": "eb3808ebe9941672176517128a88a3b500f7d6494bb104d7bebb923233825f36"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/smoke.spec.ts",
+          "path": "tests/smoke.spec.ts",
+          "sha256": "bc757cd9a3dabb8bb14db401194fe60de96f5fa1d1ccc9d229d6ebd7c77b5bf6"
+        },
+        {
+          "sourcePath": "apps/036-tetris/tests/vm_rules_golden.py",
+          "path": "tests/vm_rules_golden.py",
+          "sha256": "f23198b9584418377c43c7d42e0bcbed911407bfa28e9d40194f24ded17a24cf"
+        }
+      ]
+    }
+  ],
+  "note": "Exact committed source snapshots; packaging changes follow in a separate commit. References are not additional installed apps."
+}

@@ -1,0 +1,437 @@
+use back.api: list_scores, create_score
+
+store TetrisStore {
+    model {
+        var board []int = []
+        // 7 pieces × 4 rotations × 4 coordinate pairs; table data keeps the
+        // VM and Rust generators free of renderer-specific helper functions.
+        var shapes [][]int = [
+            [0,1,1,1,2,1,3,1], [2,0,2,1,2,2,2,3], [0,2,1,2,2,2,3,2], [1,0,1,1,1,2,1,3],
+            [1,0,2,0,1,1,2,1], [1,0,2,0,1,1,2,1], [1,0,2,0,1,1,2,1], [1,0,2,0,1,1,2,1],
+            [1,0,0,1,1,1,2,1], [1,0,1,1,2,1,1,2], [0,1,1,1,2,1,1,2], [1,0,0,1,1,1,1,2],
+            [1,0,2,0,0,1,1,1], [1,0,1,1,2,1,2,2], [1,0,2,0,0,1,1,1], [1,0,1,1,2,1,2,2],
+            [0,0,1,0,1,1,2,1], [2,0,1,1,2,1,1,2], [0,0,1,0,1,1,2,1], [2,0,1,1,2,1,1,2],
+            [0,0,0,1,1,1,2,1], [1,0,2,0,1,1,1,2], [0,1,1,1,2,1,2,2], [1,0,1,1,0,2,1,2],
+            [2,0,0,1,1,1,2,1], [1,0,1,1,1,2,2,2], [0,1,1,1,2,1,0,2], [0,0,1,0,1,1,1,2]
+        ]
+        var colors []str = ["bg-cyan-400 border-cyan-200", "bg-yellow-300 border-yellow-100", "bg-violet-400 border-violet-200", "bg-emerald-400 border-emerald-200", "bg-rose-400 border-rose-200", "bg-blue-400 border-blue-200", "bg-orange-400 border-orange-200"]
+        var cells = []
+        var next_cells = []
+        var piece int = 2
+        var next_piece int = 0
+        var rotation int = 0
+        var px int = 3
+        var py int = 0
+        var seed int = 17
+        var score int = 0
+        var lines int = 0
+        var level int = 1
+        var gravity_ms int = 600
+        var elapsed_ms int = 0
+        var phase str = "ready"
+        var status_label str = "准备好了吗"
+        var feedback str = "排列方块，填满整行"
+        var save_label str = "纪录读取中…"
+        var save_pending bool = false
+        var progress_label str = "升级还需 10 行"
+        var level_label str = "01"
+        var score_label str = "0"
+        var best_label str = "0"
+        var lines_label str = "0"
+        // Queue cross-action transitions so Vue and Rust share one state loop.
+        var needs_rebuild bool = true
+        var pending_lock bool = false
+    }
+
+    msg {
+        Init, Start, Tick, Rebuild, Lock, MoveLeft, MoveRight, Rotate,
+        SoftDrop, HardDrop, TogglePause, RestartAsk, RestartConfirm,
+        RestartCancel, ShowHelp, CloseHelp, RetrySave, Blur
+    }
+
+    on {
+        .Init -> {
+            .board = []
+            var i int = 0
+            for i < 200 { .board.push(0); i = i + 1 }
+            .score = 0
+            .lines = 0
+            .level = 1
+            .gravity_ms = 600
+            .elapsed_ms = 0
+            .phase = "ready"
+            .status_label = "准备好了吗"
+            .feedback = "排列方块，填满整行"
+            .save_label = "纪录读取中…"
+            .save_pending = false
+            .piece = 2
+            .next_piece = 0
+            .rotation = 0
+            .px = 3
+            .py = 0
+            .seed = 17
+            .needs_rebuild = true
+            .pending_lock = false
+            // Normalize both API clients through text: Vue returns a number,
+            // merged Rust returns a scalar, and Rust HTTP split returns
+            // serde_json::Value. String concatenation is supported by all
+            // renderers, while keeping the displayed best exact.
+            var loaded_best str = "" + list_scores()
+            if loaded_best == "" || loaded_best == "null" { loaded_best = "0" }
+            .score_label = "0"
+            .best_label = loaded_best
+            .lines_label = "0"
+            .level_label = "01"
+            .progress_label = "升级还需 10 行"
+            if .best_label != "0" { .save_label = "已保存" } else { .save_label = "暂无纪录" }
+            .cells = []
+            var empty_i int = 0
+            for empty_i < 200 {
+                var empty_col int = empty_i % 10
+                var empty_row int = empty_i / 10
+                .cells.push({ x: empty_col, y: empty_row, kind: "empty", cell_class: "h-full w-full min-w-0 min-h-0 rounded-none p-0 border border-slate-800 bg-slate-950", aria: "棋盘第" + (empty_row + 1).to_string() + "行第" + (empty_col + 1).to_string() + "列" })
+                empty_i = empty_i + 1
+            }
+            .next_cells = []
+            var empty_next int = 0
+            for empty_next < 16 {
+                .next_cells.push({ cell_class: "h-5 w-5", display: "" })
+                empty_next = empty_next + 1
+            }
+        }
+
+        .Start -> {
+            if .phase == "ready" {
+                .phase = "playing"
+                .status_label = "进行中"
+                .feedback = "空心轮廓是硬降落点"
+            }
+        }
+
+        .Blur -> {
+            if .phase == "playing" {
+                .phase = "paused"
+                .status_label = "已暂停"
+                .feedback = "窗口失焦，已自动暂停"
+                .elapsed_ms = 0
+            }
+        }
+
+        // Queue a render refresh; Tick drains it for both Vue and Rust tracks.
+        .Rebuild -> {
+            .needs_rebuild = true
+        }
+
+        .MoveLeft -> {
+            if .phase == "playing" {
+                var active []int = .shapes[.piece * 4 + .rotation]
+                var ok bool = true
+                var j int = 0
+                for j < 8 {
+                    var xx int = .px - 1 + active[j]
+                    var yy int = .py + active[j + 1]
+                    if xx < 0 || (yy >= 0 && .board[yy * 10 + xx] > 0) { ok = false }
+                    j = j + 2
+                }
+                if ok { .px = .px - 1; .needs_rebuild = true }
+            }
+        }
+
+        .MoveRight -> {
+            if .phase == "playing" {
+                var active []int = .shapes[.piece * 4 + .rotation]
+                var ok bool = true
+                var j int = 0
+                for j < 8 {
+                    var xx int = .px + 1 + active[j]
+                    var yy int = .py + active[j + 1]
+                    if xx >= 10 || (yy >= 0 && .board[yy * 10 + xx] > 0) { ok = false }
+                    j = j + 2
+                }
+                if ok { .px = .px + 1; .needs_rebuild = true }
+            }
+        }
+
+        .Rotate -> {
+            if .phase == "playing" {
+                var nr int = (.rotation + 1) % 4
+                var active []int = .shapes[.piece * 4 + nr]
+                var ok bool = true
+                var j int = 0
+                for j < 8 {
+                    var xx int = .px + active[j]
+                    var yy int = .py + active[j + 1]
+                    if xx < 0 || xx >= 10 || yy >= 20 || (yy >= 0 && .board[yy * 10 + xx] > 0) { ok = false }
+                    j = j + 2
+                }
+                if ok { .rotation = nr; .needs_rebuild = true }
+            }
+        }
+
+        .SoftDrop -> {
+            if .phase == "playing" {
+                var active []int = .shapes[.piece * 4 + .rotation]
+                var ok bool = true
+                var j int = 0
+                for j < 8 {
+                    var xx int = .px + active[j]
+                    var yy int = .py + active[j + 1] + 1
+                    if yy >= 20 || (yy >= 0 && .board[yy * 10 + xx] > 0) { ok = false }
+                    j = j + 2
+                }
+                if ok { .py = .py + 1; .score = .score + 1; .needs_rebuild = true } else { .pending_lock = true }
+            }
+        }
+
+        .HardDrop -> {
+            if .phase == "playing" {
+                var active []int = .shapes[.piece * 4 + .rotation]
+                var drop int = .py
+                var falling bool = true
+                for falling {
+                    var j int = 0
+                    var ok bool = true
+                    for j < 8 {
+                        var xx int = .px + active[j]
+                        var yy int = drop + active[j + 1] + 1
+                        if yy >= 20 || (yy >= 0 && .board[yy * 10 + xx] > 0) { ok = false }
+                        j = j + 2
+                    }
+                    if ok { drop = drop + 1 } else { falling = false }
+                }
+                .score = .score + (drop - .py) * 2
+                .py = drop
+                .pending_lock = true
+            }
+        }
+
+        .Lock -> { .pending_lock = true }
+
+        .Tick -> {
+            // Drain a queued lock before advancing gravity. Keeping this
+            // inline avoids backend-specific sibling-action calls.
+            if .pending_lock {
+                var lock_active []int = .shapes[.piece * 4 + .rotation]
+                var lock_j int = 0
+                for lock_j < 8 {
+                    var lock_x int = .px + lock_active[lock_j]
+                    var lock_y int = .py + lock_active[lock_j + 1]
+                    if lock_y >= 0 && lock_y < 20 && lock_x >= 0 && lock_x < 10 { .board[lock_y * 10 + lock_x] = .piece + 1 }
+                    lock_j = lock_j + 2
+                }
+                var kept []int = []
+                var lock_row int = 0
+                var cleared int = 0
+                for lock_row < 20 {
+                    var full bool = true
+                    var lock_col int = 0
+                    for lock_col < 10 {
+                        if .board[lock_row * 10 + lock_col] == 0 { full = false }
+                        lock_col = lock_col + 1
+                    }
+                    if full { cleared = cleared + 1 }
+                    else {
+                        lock_col = 0
+                        for lock_col < 10 { kept.push(.board[lock_row * 10 + lock_col]); lock_col = lock_col + 1 }
+                    }
+                    lock_row = lock_row + 1
+                }
+                // Board rows are stored top-to-bottom. Keep surviving rows in
+                // their original order, then prepend one empty row per cleared
+                // line so the stack falls toward the bottom of the board.
+                var shifted []int = []
+                var empty_cells int = cleared * 10
+                var empty_i2 int = 0
+                while empty_i2 < empty_cells { shifted.push(0); empty_i2 = empty_i2 + 1 }
+                var kept_i int = 0
+                while kept_i < kept.len() { shifted.push(kept[kept_i]); kept_i = kept_i + 1 }
+                .board = shifted
+                if cleared > 0 {
+                    var base int = 0
+                    if cleared == 1 { base = 100 }
+                    if cleared == 2 { base = 300 }
+                    if cleared == 3 { base = 500 }
+                    if cleared >= 4 { base = 800 }
+                    .score = .score + base * .level
+                    .lines = .lines + cleared
+                    .level = 1 + .lines / 10
+                    .gravity_ms = 600 - (.level - 1) * 60
+                    if .gravity_ms < 120 { .gravity_ms = 120 }
+                    .feedback = "消除 " + cleared.to_string() + " 行"
+                } else { .feedback = "落点已确认" }
+                .piece = .next_piece
+                .seed = (.seed * 37 + 17) % 997
+                .next_piece = .seed % 7
+                .rotation = 0
+                .px = 3
+                .py = 0
+                .elapsed_ms = 0
+                var candidate_is_best bool = false
+                var candidate_len int = .score.to_string().len()
+                if candidate_len > .best_label.len() { candidate_is_best = true }
+                else if candidate_len == .best_label.len() && .score.to_string() > .best_label { candidate_is_best = true }
+                .save_pending = candidate_is_best
+                if .save_pending { .save_label = "新纪录待保存" }
+                var spawn []int = .shapes[.piece * 4]
+                var valid_spawn bool = true
+                var spawn_i int = 0
+                for spawn_i < 8 {
+                    var spawn_x int = .px + spawn[spawn_i]
+                    var spawn_y int = .py + spawn[spawn_i + 1]
+                    if spawn_y >= 0 && .board[spawn_y * 10 + spawn_x] > 0 { valid_spawn = false }
+                    spawn_i = spawn_i + 2
+                }
+                if !valid_spawn { .phase = "over"; .status_label = "游戏结束" }
+                .pending_lock = false
+                .needs_rebuild = true
+            }
+
+            if .phase == "playing" {
+                .elapsed_ms = .elapsed_ms + 20
+                if .elapsed_ms >= .gravity_ms {
+                    .elapsed_ms = 0
+                    var fall_active []int = .shapes[.piece * 4 + .rotation]
+                    var fall_ok bool = true
+                    var fall_j int = 0
+                    for fall_j < 8 {
+                        var fall_x int = .px + fall_active[fall_j]
+                        var fall_y int = .py + fall_active[fall_j + 1] + 1
+                        if fall_y >= 20 || (fall_y >= 0 && .board[fall_y * 10 + fall_x] > 0) { fall_ok = false }
+                        fall_j = fall_j + 2
+                    }
+                    if fall_ok { .py = .py + 1; .needs_rebuild = true }
+                    else { .pending_lock = true }
+                }
+            }
+
+            // Rebuild the complete render model from plain state fields. This
+            // is deliberately in Tick so every action path shares it.
+            if .needs_rebuild {
+                .cells = []
+                var render_active []int = .shapes[.piece * 4 + .rotation]
+                var ghost_y int = .py
+                var ghost_falling bool = true
+                for ghost_falling {
+                    var ghost_j int = 0
+                    var ghost_ok bool = true
+                    for ghost_j < 8 {
+                        var ghost_x int = .px + render_active[ghost_j]
+                        var ghost_row int = ghost_y + render_active[ghost_j + 1] + 1
+                        if ghost_x < 0 || ghost_x >= 10 || ghost_row >= 20 { ghost_ok = false }
+                        if ghost_ok && ghost_row >= 0 && .board[ghost_row * 10 + ghost_x] > 0 { ghost_ok = false }
+                        ghost_j = ghost_j + 2
+                    }
+                    if ghost_ok { ghost_y = ghost_y + 1 } else { ghost_falling = false }
+                }
+                var render_i int = 0
+                for render_i < 200 {
+                    var render_col int = render_i % 10
+                    var render_row int = render_i / 10
+                    var render_kind str = "empty"
+                    var render_class str = "h-full w-full min-w-0 min-h-0 rounded-none p-0 border border-slate-800 bg-slate-950"
+                    if .board[render_i] > 0 {
+                        render_kind = "locked"
+                        render_class = "h-full w-full min-w-0 min-h-0 rounded-none p-0 border-2 " + .colors[.board[render_i] - 1] + " brightness-90"
+                    }
+                    var active_j int = 0
+                    for active_j < 8 {
+                        var active_x int = .px + render_active[active_j]
+                        var active_y int = .py + render_active[active_j + 1]
+                        var ghost_x2 int = .px + render_active[active_j]
+                        var ghost_y2 int = ghost_y + render_active[active_j + 1]
+                        if active_x == render_col && active_y == render_row {
+                            render_kind = "active"
+                            render_class = "h-full w-full min-w-0 min-h-0 rounded-none p-0 border-2 " + .colors[.piece] + " brightness-125 shadow-inner"
+                        } else if ghost_x2 == render_col && ghost_y2 == render_row && render_kind == "empty" {
+                            render_kind = "ghost"
+                            render_class = "h-full w-full min-w-0 min-h-0 rounded-none p-0 border-2 border-dashed " + .colors[.piece] + " bg-transparent opacity-80"
+                        }
+                        active_j = active_j + 2
+                    }
+                    .cells.push({ x: render_col, y: render_row, kind: render_kind, cell_class: render_class, aria: "棋盘第" + (render_row + 1).to_string() + "行第" + (render_col + 1).to_string() + "列" })
+                    render_i = render_i + 1
+                }
+                .next_cells = []
+                var preview []int = .shapes[.next_piece * 4]
+                var preview_i int = 0
+                for preview_i < 16 {
+                    var preview_col int = preview_i % 4
+                    var preview_row int = preview_i / 4
+                    // Preview cells keep a fixed square size. `h-full w-full`
+                    // is correct for board cells, but in an auto-sized native
+                    // grid it expands each occupied track to the whole card.
+                    var preview_class str = "h-5 w-5 rounded-none p-0 border border-slate-800 bg-slate-950"
+                    var preview_j int = 0
+                    for preview_j < 8 {
+                        if preview[preview_j] == preview_col && preview[preview_j + 1] == preview_row { preview_class = "h-5 w-5 rounded-none p-0 border-2 " + .colors[.next_piece] + " brightness-125 shadow-inner" }
+                        preview_j = preview_j + 2
+                    }
+                    .next_cells.push({ cell_class: preview_class, display: "" })
+                    preview_i = preview_i + 1
+                }
+                .score_label = .score.to_string()
+                .lines_label = .lines.to_string()
+                .level_label = if .level < 10 { "0" + .level.to_string() } else { .level.to_string() }
+                var remain int = 10 - (.lines % 10)
+                .progress_label = "升级还需 " + remain.to_string() + " 行"
+                .needs_rebuild = false
+            }
+        }
+
+        .TogglePause -> {
+            if .phase == "playing" { .phase = "paused"; .status_label = "已暂停" }
+            else if .phase == "paused" { .phase = "playing"; .status_label = "进行中"; .elapsed_ms = 0 }
+            .needs_rebuild = true
+        }
+        .RestartAsk -> {
+            if .phase == "playing" || .phase == "paused" { .phase = "confirm"; .status_label = "重新开始？"; .needs_rebuild = true }
+        }
+        .RestartCancel -> { if .phase == "confirm" { .phase = "paused"; .status_label = "已暂停"; .needs_rebuild = true } }
+        .RestartConfirm -> {
+            .board = []
+            var restart_i int = 0
+            for restart_i < 200 { .board.push(0); restart_i = restart_i + 1 }
+            .score = 0
+            .lines = 0
+            .level = 1
+            .gravity_ms = 600
+            .elapsed_ms = 0
+            .piece = 2
+            .next_piece = 0
+            .rotation = 0
+            .px = 3
+            .py = 0
+            .seed = 17
+            .phase = "ready"
+            .status_label = "准备好了吗"
+            .feedback = "排列方块，填满整行"
+            .save_label = "纪录读取中…"
+            .save_pending = false
+            .score_label = "0"
+            .lines_label = "0"
+            .level_label = "01"
+            .progress_label = "升级还需 10 行"
+            .pending_lock = false
+            .needs_rebuild = true
+        }
+        .ShowHelp -> { if .phase == "playing" || .phase == "paused" { .phase = "help"; .status_label = "玩法说明"; .needs_rebuild = true } }
+        .CloseHelp -> { if .phase == "help" { .phase = "paused"; .status_label = "已暂停"; .needs_rebuild = true } }
+        .RetrySave -> {
+            if .save_pending {
+            // Keep the API result typed as bool across Vue, VM HTTP, and
+            // merged Rust. String concatenation formats booleans differently
+            // between renderers, which made VM no-merge report a false
+            // failure even after the backend accepted the score.
+            var save_ok bool = create_score(.score.to_string())
+            if save_ok {
+                    .best_label = .score.to_string()
+                    .save_pending = false
+                    .save_label = "已保存"
+                } else {
+                    .save_label = "纪录未保存 · 重试"
+                }
+                .needs_rebuild = true
+            }
+        }
+    }
+}

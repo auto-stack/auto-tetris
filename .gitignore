@@ -1,0 +1,19 @@
+# Generated / runtime artifacts.
+gen/
+.auto/
+dist/
+build/
+.am/
+rust-workspace/*
+# Keep the generated Rust rules fixture reviewable; `auto build` refreshes the
+# included source while this test remains the acceptance entry point.
+!rust-workspace/036-tetris/
+rust-workspace/036-tetris/*
+!rust-workspace/036-tetris/tests/
+!rust-workspace/036-tetris/tests/rules_golden.rs
+node_modules/
+.cargo-*/
+*.log
+records.json
+src/back/*.a2r.rs
+tests/test-results/
