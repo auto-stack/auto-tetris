@@ -17,3 +17,20 @@ node_modules/
 records.json
 src/back/*.a2r.rs
 tests/test-results/
+
+# Independent app generated/runtime artifacts
+.am/
+am.at
+gen/
+node_modules/
+target/
+rust-workspace/
+dist/
+__pycache__/
+*.pyc
+*.log
+*.exe
+*.pdb
+/tmp/
+/test-results/
+/playwright-report/

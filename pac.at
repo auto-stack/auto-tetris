@@ -7,8 +7,8 @@ title: "俄罗斯方块"
 theme: "dark"
 accent: "indigo"
 api: "rust"
-front_port: 17500
-back_port: 17501
+front_port: 17844
+back_port: 17845
 window: "fit"
 desktop: "true"
 desktop_exe: "rust-workspace/target/debug/tetris.exe"
