@@ -40,7 +40,7 @@ widget App {
                         gap: 1
                         style: "w-full h-full min-h-0"
                         for cell in .store.cells {
-                            button { aria-label: cell.aria, onclick: .Start, class: cell.cell_class }
+                            button { onclick: .Start, class: cell.cell_class }
                         }
                     }
                 }
@@ -103,18 +103,25 @@ widget App {
             // 状态提示使用标准 dialog。它在 Vue 中是对话框浮层，
             // 在 VM/Rust 中映射到同一套 Modal Popover，避免 absolute/inset
             // 在原生渲染器降级为普通流式内容后跑到窗口角落。
+            // 按钮统一包 row（dialog-content 是纵列）：左右排布 + 居中。
             dialog (open: .store.phase == "ready") {
                 dialog-content {
                     text "准备好了吗" { style: "text-xl font-medium" }
                     text "填满整行即可消除" { style: "text-sm text-muted-foreground" }
-                    button "开始游戏" { onclick: .Start, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    row {
+                        style: "justify-center gap-2 items-center"
+                        button "开始游戏" { onclick: .Start, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    }
                 }
             }
             dialog (open: .store.phase == "paused") {
                 dialog-content {
                     text "已暂停" { style: "text-xl font-medium" }
-                    button "继续游戏" { onclick: .TogglePause, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
-                    button "重新开始" { onclick: .RestartAsk, style: "px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                    row {
+                        style: "justify-center gap-2 items-center"
+                        button "继续游戏" { onclick: .TogglePause, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                        button "重新开始" { onclick: .RestartAsk, style: "px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80" }
+                    }
                 }
             }
             dialog (open: .store.phase == "confirm") {
@@ -122,6 +129,7 @@ widget App {
                     text "重新开始？" { style: "text-xl font-medium" }
                     text "本局进度将清空，最高纪录会保留" { style: "text-sm text-muted-foreground" }
                     row {
+                        style: "justify-center gap-2 items-center"
                         button "取消" { onclick: .RestartCancel, style: "px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80" }
                         button "确认重开" { onclick: .RestartConfirm, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
                     }
@@ -131,7 +139,10 @@ widget App {
                 dialog-content {
                     text "玩法说明" { style: "text-xl font-medium" }
                     text "← → 移动，↑ 顺时针旋转\n↓ 软降，Space 硬降\n空心轮廓表示硬降落点\n本版随机抽块，不含踢墙" { style: "text-sm text-muted-foreground text-center" }
-                    button "返回游戏" { onclick: .CloseHelp, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    row {
+                        style: "justify-center gap-2 items-center"
+                        button "返回游戏" { onclick: .CloseHelp, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    }
                 }
             }
             dialog (open: .store.phase == "over") {
@@ -139,7 +150,10 @@ widget App {
                     text "游戏结束" { style: "text-xl font-medium" }
                     text .store.score_label { style: "text-3xl tabular-nums" }
                     text "再试一次，挑战最高纪录" { style: "text-sm text-muted-foreground" }
-                    button "再来一局" { onclick: .RestartConfirm, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    row {
+                        style: "justify-center gap-2 items-center"
+                        button "再来一局" { onclick: .RestartConfirm, style: "px-3 py-2 rounded-md bg-primary text-primary-foreground" }
+                    }
                 }
             }
         }
