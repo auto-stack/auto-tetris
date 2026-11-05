@@ -4,8 +4,21 @@ scene: "ui"
 render: "vue"
 icon: "blocks"
 title: "俄罗斯方块"
-theme: "dark"
+# auto-os/PLAN-060 T-02：原显式 `theme: "dark"` 键退役 = **follow 宿主**
+# （宿主策略完整快照 > 本 design 默认 > legacy 回退；显式值会以 pac 优先级
+# 压过宿主跟随，两族×明暗需求下不声明）。原 dark 默认改由 app.at design
+# 派生腿承接（458/615 种子链 AUTO_UI_THEME > os-config > 系统主题）。
+# 品牌 accent（indigo）保留豁免；方块七种分类色为内容/规则身份不映射
+# （docs/source-README.md 色彩契约原样）。主合同反链见 README。
+# `vendor/themes` 为 UI 管理渠道发布的**固定版本快照**（themes 0.2.0，内容
+# digest 9fa07742dc68aa5377ae06cb2d966386002063f184c515b6c5dddf8a6bef838e，
+# per-file sha256 与源包逐文件校验同律；不可二次编辑、非第二权威源）。
+# theme 键保持缺省 = follow 宿主。
 accent: "indigo"
+
+dep themes {
+    path: "vendor/themes"
+}
 api: "rust"
 front_port: 17844
 back_port: 17845

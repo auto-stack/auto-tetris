@@ -1,4 +1,8 @@
 use tetris_store: TetrisStore
+// auto-os/PLAN-060 T-02：官方主题包主题名导入（031 合同消费面——`dep themes`
+// 声明使包可解析，本 use 把包内 pub 主题收进收集链；无此行 themes 树不注册，
+// design.theme/follow 宿主候选都会在 C-11 未注册拒绝）。
+use themes.themes: Auto
 
 widget App {
     msg {
@@ -7,7 +11,23 @@ widget App {
         CloseHelp, RetrySave, Blur
     }
 
-    model { var interval int = 20 }
+    model {
+        var interval int = 20
+        // PLAN-060 T-02：dark_mode 状态位（Plan 458 契约变量名，勿改）——
+        // design mode 派生源；种子链在启动/翻转时回写。
+        var dark_mode bool = true
+    }
+
+    // PLAN-060 T-02：主题设计默认（独立默认腿）。theme="Auto" 经 pac
+    // `dep themes`（vendor/themes 固定快照）注册的官方树解析；mode 由
+    // dark_mode 位驱动。宿主策略完整快照按 031 full-host 语义接管本默认
+    // （follow——pac theme 键保持缺省）。内容身份豁免不映射：七种方块分类
+    // 色（docs/source-README.md 色彩契约）与方块渲染域（井+预览暗底，
+    // 亮色方块可见性身份）；壳面板边框（border-border）随主题。
+    design {
+        theme: "Auto"
+        mode: if .dark_mode { "dark" } else { "light" }
+    }
 
     view {
         col {
@@ -34,7 +54,7 @@ widget App {
             row {
                 style: "items-start justify-center gap-4"
                 col {
-                    style: "w-72 h-[36rem] bg-slate-950 border border-slate-700 rounded-lg p-1"
+                    style: "w-72 h-[36rem] bg-slate-950 border border-border rounded-lg p-1"
                     grid {
                         cols: 10
                         gap: 1
